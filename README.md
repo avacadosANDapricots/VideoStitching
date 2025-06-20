@@ -1,31 +1,49 @@
-# Video Stitching Project
+# Video Frame Stitching for CCTV Camera Movement
 
-This project implements video stitching functionality using Python, OpenCV, and NumPy.
+This project extracts frames from a CCTV video, preprocesses them, stitches them into a panorama when the camera moves, and saves the stitched image.
 
-## Setup Instructions
+## Features
+- Extracts frames at intervals from a video file
+- Preprocesses frames (resize, grayscale, denoise, enhance)
+- Stitches frames into a panorama using OpenCV
+- Saves the stitched image to a specified directory
 
-1. Install Python 3.x:
-   ```bash
-   sudo apt update
-   sudo apt install python3 python3-pip
-   ```
+## Requirements
+- Python 3.x
+- OpenCV (`opencv-python`)
+- numpy
 
-2. Install required dependencies:
-   ```bash
-   pip3 install -r requirements.txt
-   ```
-
-3. Clone the repository (if using Git):
-   ```bash
-   git clone <repository-url>
-   cd VideoStitching
-   ```
-
-## Project Structure
-
-- `requirements.txt`: Contains Python package dependencies
-- `README.md`: Project documentation and setup instructions
+Install dependencies:
+```
+pip install -r requirements.txt
+```
 
 ## Usage
 
-[Usage instructions will be added as the project develops] 
+Run the frame processor script:
+```
+python frame_processor.py <video_path>
+```
+
+### Optional Arguments
+- `--interval`: Frame extraction interval (default: 30)
+- `--max-frames`: Maximum number of frames to process (default: 100)
+- `--output`: Output path for the stitched image (default: `/home/affi/Desktop/VideoStitching/StitchedFrame/stitched_output.jpg`)
+
+### Example
+```
+python frame_processor.py /path/to/video.mp4 --interval 20 --max-frames 50 --output /home/affi/Desktop/VideoStitching/StitchedFrame/stitched_output.jpg
+```
+
+The stitched image will be saved in the `StitchedFrame` directory.
+
+## Output
+- The stitched panorama image is saved as `stitched_output.jpg` in the `StitchedFrame` folder by default.
+
+## Notes
+- Ensure the `StitchedFrame` directory exists before running the script, or the script will attempt to create it.
+- The quality of stitching depends on the video and camera movement.
+
+## Troubleshooting
+- If stitching fails, check the log for errors. Not enough overlap or too few frames can cause failure.
+- For best results, use videos with smooth camera movement and good lighting.

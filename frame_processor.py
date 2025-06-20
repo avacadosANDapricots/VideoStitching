@@ -5,6 +5,7 @@ import logging
 from collections import deque
 import argparse
 import sys
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -135,6 +136,40 @@ class FrameManager:
         """Clear all stored frames."""
         self.frames.clear()
 
+class MotionDetector:
+    def __init__(self, threshold: float = 30.0, min_motion_frames: int = 3):
+        """
+        Detects motion based on frame-to-frame difference.
+        Args:
+            threshold (float): Threshold for mean absolute difference to detect motion.
+            min_motion_frames (int): Minimum consecutive frames to confirm motion.
+        """
+        self.threshold = threshold
+        self.min_motion_frames = min_motion_frames
+        self.motion_counter = 0
+        self.prev_frame = None
+        self.in_motion = False
+
+    def detect(self, frame: np.ndarray) -> bool:
+        if self.prev_frame is None:
+            self.prev_frame = frame
+            return False
+        diff = cv2.absdiff(self.prev_frame, frame)
+        mean_diff = np.mean(diff)
+        self.prev_frame = frame
+        if mean_diff > self.threshold:
+            self.motion_counter += 1
+            if self.motion_counter >= self.min_motion_frames:
+                self.in_motion = True
+        else:
+            if self.in_motion and self.motion_counter >= self.min_motion_frames:
+                self.in_motion = False
+                self.motion_counter = 0
+                return 'motion_stopped'
+            self.motion_counter = 0
+        return self.in_motion
+
+
 def process_video(video_path: str, interval: int = 30, max_frames: int = 100) -> List[np.ndarray]:
     """
     Process a video file and return preprocessed frames.
@@ -157,39 +192,68 @@ def process_video(video_path: str, interval: int = 30, max_frames: int = 100) ->
             
     return frame_manager.get_frames()
 
+def process_video_motion_based(video_path: str, max_frames: int = 100, output_dir: str = "StitchedFrame"):
+    """
+    Process video and stitch frames only when camera is moving.
+    Args:
+        video_path (str): Path to the video file
+        max_frames (int): Maximum number of frames to process per movement
+        output_dir (str): Directory to save stitched images
+    """
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    frame_manager = FrameManager(max_frames)
+    preprocessor = FramePreprocessor()
+    motion_detector = MotionDetector()
+    with FrameExtractor(video_path, interval=1) as extractor:
+        movement_count = 0
+        for idx, frame in enumerate(extractor.extract_frames()):
+            processed_frame = preprocessor.preprocess_frame(frame)
+            motion_status = motion_detector.detect(processed_frame)
+            if motion_status is True:
+                frame_manager.add_frame(frame)  # Use original color frame for stitching
+            elif motion_status == 'motion_stopped' and len(frame_manager.frames) > 1:
+                movement_count += 1
+                stitcher = cv2.Stitcher_create()
+                status, stitched = stitcher.stitch(frame_manager.get_frames())
+                if status == cv2.Stitcher_OK:
+                    out_path = os.path.join(output_dir, f"stitched_panorama_{movement_count}.jpg")
+                    cv2.imwrite(out_path, stitched)
+                    logger.info(f"Stitched image saved to {out_path}")
+                else:
+                    logger.error(f"Stitching failed for movement {movement_count} with status {status}")
+                frame_manager.clear()
+        # Handle any remaining frames at the end
+        if len(frame_manager.frames) > 1:
+            movement_count += 1
+            stitcher = cv2.Stitcher_create()
+            status, stitched = stitcher.stitch(frame_manager.get_frames())
+            if status == cv2.Stitcher_OK:
+                out_path = os.path.join(output_dir, f"stitched_panorama_{movement_count}.jpg")
+                cv2.imwrite(out_path, stitched)
+                logger.info(f"Stitched image saved to {out_path}")
+            else:
+                logger.error(f"Stitching failed for movement {movement_count} with status {status}")
+            frame_manager.clear()
+
 if __name__ == "__main__":
     def parse_args():
-        parser = argparse.ArgumentParser(description='Process video frames for panorama stitching')
+        parser = argparse.ArgumentParser(description='Process video frames for panorama stitching based on camera movement')
         parser.add_argument('video_path', help='Path to the input video file')
         parser.add_argument('--interval', type=int, default=30,
                           help='Frame extraction interval (default: 30)')
         parser.add_argument('--max-frames', type=int, default=100,
-                          help='Maximum number of frames to process (default: 100)')
-        parser.add_argument('--output', type=str, default='stitched_output.jpg',
-                          help='Output path for stitched image')
+                          help='Maximum number of frames to process per movement (default: 100)')
+        parser.add_argument('--output-dir', type=str, default='StitchedFrame',
+                          help='Output directory for stitched images')
         return parser.parse_args()
-    
     try:
         args = parse_args()
-        processed_frames = process_video(
+        process_video_motion_based(
             args.video_path,
-            interval=args.interval,
-            max_frames=args.max_frames
+            max_frames=args.max_frames,
+            output_dir=args.output_dir
         )
-        logger.info(f"Successfully processed {len(processed_frames)} frames")
-
-        # --- Stitching ---
-        if len(processed_frames) > 1:
-            stitcher = cv2.Stitcher_create()
-            status, stitched = stitcher.stitch(processed_frames)
-            if status == cv2.Stitcher_OK:
-                cv2.imwrite(args.output, stitched)
-                logger.info(f"Stitched image saved to {args.output}")
-            else:
-                logger.error(f"Stitching failed with status {status}")
-        else:
-            logger.error("Not enough frames to stitch.")
-
     except ValueError as e:
         logger.error(f"Invalid input: {str(e)}")
         sys.exit(1)

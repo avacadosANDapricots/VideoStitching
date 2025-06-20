@@ -1,9 +1,9 @@
-from frame_processor import process_video
+from frame_processor import process_video_motion_based
 
-# Process a video file
-video_path = "your_video.mp4"
-processed_frames = process_video(
+# Process a video file and create panoramas based on camera movement
+video_path = "your_video.mp4"  # Replace with your video file path
+process_video_motion_based(
     video_path,
-    interval=30,  # Extract every 30th frame
-    max_frames=1000  # Store maximum 1000 frames
+    max_frames=100,  # Maximum frames per movement event
+    output_dir="StitchedFrame"  # Output directory for panoramas
 )

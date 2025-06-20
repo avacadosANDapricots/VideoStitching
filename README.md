@@ -1,12 +1,13 @@
-# Video Frame Stitching for CCTV Camera Movement
+git # Video Frame Stitching for CCTV Camera Movement
 
-This project extracts frames from a CCTV video, preprocesses them, stitches them into a panorama when the camera moves, and saves the stitched image.
+This project extracts frames from a CCTV video only when the camera is moving, stitches them into a panorama when the camera stops, and saves each stitched image.
 
 ## Features
-- Extracts frames at intervals from a video file
-- Preprocesses frames (resize, grayscale, denoise, enhance)
-- Stitches frames into a panorama using OpenCV
-- Saves the stitched image to a specified directory
+- Detects camera movement using frame-to-frame difference (motion detection)
+- Extracts and collects frames only during camera movement
+- Stitches frames into a panorama when the camera stops
+- Saves each panorama to the `StitchedFrame` directory
+- Handles multiple movement events in a single video (creates multiple panoramas)
 
 ## Requirements
 - Python 3.x
@@ -26,23 +27,23 @@ python frame_processor.py <video_path>
 ```
 
 ### Optional Arguments
-- `--interval`: Frame extraction interval (default: 30)
-- `--max-frames`: Maximum number of frames to process (default: 100)
-- `--output`: Output path for the stitched image (default: `/home/affi/Desktop/VideoStitching/StitchedFrame/stitched_output.jpg`)
+- `--max-frames`: Maximum number of frames to process per movement (default: 100)
+- `--output-dir`: Output directory for stitched images (default: `StitchedFrame`)
 
 ### Example
 ```
-python frame_processor.py /path/to/video.mp4 --interval 20 --max-frames 50 --output /home/affi/Desktop/VideoStitching/StitchedFrame/stitched_output.jpg
+python frame_processor.py /path/to/video.mp4 --max-frames 100 --output-dir StitchedFrame
 ```
 
-The stitched image will be saved in the `StitchedFrame` directory.
+The stitched images will be saved in the `StitchedFrame` directory as `stitched_panorama_1.jpg`, `stitched_panorama_2.jpg`, etc.
 
 ## Output
-- The stitched panorama image is saved as `stitched_output.jpg` in the `StitchedFrame` folder by default.
+- Each panorama image is saved in the `StitchedFrame` folder, one for each camera movement event.
 
 ## Notes
-- Ensure the `StitchedFrame` directory exists before running the script, or the script will attempt to create it.
+- The script uses motion detection to determine when the camera is moving.
 - The quality of stitching depends on the video and camera movement.
+- You can adjust the motion detection threshold in the `MotionDetector` class in `frame_processor.py` if needed.
 
 ## Troubleshooting
 - If stitching fails, check the log for errors. Not enough overlap or too few frames can cause failure.
